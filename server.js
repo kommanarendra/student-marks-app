@@ -22,7 +22,7 @@ const pool = new Pool({
   port: process.env.DB_PORT
 });
 
-// Test PostgreSQL connection
+
 pool.connect()
   .then(() => {
     console.log("Connected to PostgreSQL database");
