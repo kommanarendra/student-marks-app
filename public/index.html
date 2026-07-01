@@ -1,0 +1,285 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Student Marks App</title>
+
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      background-color: #f4f4f4;
+      margin: 0;
+      padding: 30px;
+    }
+
+    .container {
+      display: flex;
+      gap: 25px;
+      justify-content: center;
+      align-items: flex-start;
+    }
+
+    .form-box, .list-box {
+      background-color: white;
+      padding: 25px;
+      border-radius: 10px;
+      box-shadow: 0 0 10px gray;
+    }
+
+    .form-box {
+      width: 330px;
+    }
+
+    .list-box {
+      width: 700px;
+    }
+
+    h2 {
+      text-align: center;
+    }
+
+    input, button {
+      width: 95%;
+      padding: 10px;
+      margin: 10px 0;
+      font-size: 16px;
+    }
+
+    button {
+      background-color: #007bff;
+      color: white;
+      border: none;
+      border-radius: 5px;
+      cursor: pointer;
+    }
+
+    button:hover {
+      background-color: #0056b3;
+    }
+
+    .clear-btn {
+      background-color: #dc3545;
+    }
+
+    .clear-btn:hover {
+      background-color: #a71d2a;
+    }
+
+    #message {
+      font-weight: bold;
+      text-align: center;
+      margin-top: 10px;
+    }
+
+    .summary {
+      display: flex;
+      justify-content: space-between;
+      background-color: #f4f4f4;
+      padding: 10px;
+      margin-bottom: 15px;
+      border-radius: 5px;
+      font-weight: bold;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 15px;
+    }
+
+    th, td {
+      border: 1px solid #ccc;
+      padding: 10px;
+      text-align: center;
+    }
+
+    th {
+      background-color: #007bff;
+      color: white;
+    }
+
+    .delete-btn {
+      width: auto;
+      padding: 6px 12px;
+      background-color: #dc3545;
+    }
+
+    .delete-btn:hover {
+      background-color: #a71d2a;
+    }
+  </style>
+</head>
+
+<body>
+
+  <div class="container">
+
+    <div class="form-box">
+      <h2>Add Student Marks</h2>
+
+      <input type="text" id="rollNumber" placeholder="Enter roll number">
+
+      <input type="text" id="studentName" placeholder="Enter student name">
+
+      <input type="number" id="marks" placeholder="Enter marks">
+
+      <button onclick="addStudent()">Save Student</button>
+
+      <button onclick="clearForm()" class="clear-btn">Clear Form</button>
+
+      <div id="message"></div>
+    </div>
+
+    <div class="list-box">
+      <h2>Student Marks List</h2>
+
+      <div class="summary">
+        <div>Total Students: <span id="totalStudents">0</span>/10</div>
+        <div>Average Marks: <span id="averageMarks">0</span></div>
+      </div>
+
+      <button onclick="loadStudents()">Refresh List</button>
+
+      <table>
+        <thead>
+          <tr>
+            <th>ID</th>
+            <th>Roll Number</th>
+            <th>Student Name</th>
+            <th>Marks</th>
+            <th>Grade</th>
+            <th>Action</th>
+          </tr>
+        </thead>
+
+        <tbody id="studentTableBody">
+        </tbody>
+      </table>
+    </div>
+
+  </div>
+
+  <script>
+    async function addStudent() {
+      const rollNumber = document.getElementById("rollNumber").value;
+      const studentName = document.getElementById("studentName").value;
+      const marks = document.getElementById("marks").value;
+      const message = document.getElementById("message");
+
+      if (rollNumber === "" || studentName === "" || marks === "") {
+        message.innerText = "Please enter all fields";
+        message.style.color = "red";
+        return;
+      }
+
+      if (Number(marks) < 0 || Number(marks) > 100) {
+        message.innerText = "Marks should be between 0 and 100";
+        message.style.color = "red";
+        return;
+      }
+
+      const response = await fetch("/api/students", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+          rollNumber: rollNumber,
+          studentName: studentName,
+          marks: Number(marks)
+        })
+      });
+
+      const data = await response.json();
+
+      if (response.ok) {
+        message.innerText = data.message;
+        message.style.color = "green";
+        clearForm();
+        loadStudents();
+      } else {
+        message.innerText = data.message;
+        message.style.color = "red";
+      }
+    }
+
+    async function loadStudents() {
+      const response = await fetch("/api/students");
+      const students = await response.json();
+
+      const tableBody = document.getElementById("studentTableBody");
+      const totalStudents = document.getElementById("totalStudents");
+      const averageMarks = document.getElementById("averageMarks");
+
+      tableBody.innerHTML = "";
+      totalStudents.innerText = students.length;
+
+      if (students.length === 0) {
+        averageMarks.innerText = "0";
+        tableBody.innerHTML = `
+          <tr>
+            <td colspan="6">No student records found</td>
+          </tr>
+        `;
+        return;
+      }
+
+      let totalMarks = 0;
+
+      students.forEach(student => {
+        totalMarks = totalMarks + Number(student.marks);
+
+        const row = document.createElement("tr");
+
+        row.innerHTML = `
+          <td>${student.id}</td>
+          <td>${student.roll_number}</td>
+          <td>${student.student_name}</td>
+          <td>${student.marks}</td>
+          <td>${getGrade(student.marks)}</td>
+          <td>
+            <button class="delete-btn" onclick="deleteStudent(${student.id})">Delete</button>
+          </td>
+        `;
+
+        tableBody.appendChild(row);
+      });
+
+      const average = totalMarks / students.length;
+      averageMarks.innerText = average.toFixed(2);
+    }
+
+    async function deleteStudent(id) {
+      await fetch(`/api/students/${id}`, {
+        method: "DELETE"
+      });
+
+      loadStudents();
+    }
+
+    function clearForm() {
+      document.getElementById("rollNumber").value = "";
+      document.getElementById("studentName").value = "";
+      document.getElementById("marks").value = "";
+    }
+
+    function getGrade(marks) {
+      marks = Number(marks);
+
+      if (marks >= 90) {
+        return "A";
+      } else if (marks >= 80) {
+        return "B";
+      } else if (marks >= 70) {
+        return "C";
+      } else if (marks >= 60) {
+        return "D";
+      } else {
+        return "F";
+      }
+    }
+
+    loadStudents();
+  </script>
+
+</body>
+</html>
