@@ -22,10 +22,11 @@ const pool = new Pool({
   port: process.env.DB_PORT
 });
 
-
+// Test PostgreSQL connection
 pool.connect()
-  .then(() => {
+  .then((client) => {
     console.log("Connected to PostgreSQL database");
+    client.release();
   })
   .catch((error) => {
     console.log("Database connection failed:", error.message);
@@ -44,6 +45,12 @@ app.post("/api/students", async (req, res) => {
     if (!rollNumber || !studentName || marks === "") {
       return res.status(400).json({
         message: "All fields are required"
+      });
+    }
+
+    if (Number(marks) < 0 || Number(marks) > 100) {
+      return res.status(400).json({
+        message: "Marks should be between 0 and 100"
       });
     }
 
@@ -95,6 +102,59 @@ app.get("/api/students", async (req, res) => {
   } catch (error) {
     res.status(500).json({
       message: "Failed to fetch students",
+      error: error.message
+    });
+  }
+});
+
+// API: Update student by id
+app.put("/api/students/:id", async (req, res) => {
+  try {
+    const id = req.params.id;
+    const { rollNumber, studentName, marks } = req.body;
+
+    if (!rollNumber || !studentName || marks === "") {
+      return res.status(400).json({
+        message: "All fields are required"
+      });
+    }
+
+    if (Number(marks) < 0 || Number(marks) > 100) {
+      return res.status(400).json({
+        message: "Marks should be between 0 and 100"
+      });
+    }
+
+    const sql = `
+      UPDATE students
+      SET roll_number = $1,
+          student_name = $2,
+          marks = $3
+      WHERE id = $4
+      RETURNING *
+    `;
+
+    const result = await pool.query(sql, [
+      rollNumber,
+      studentName,
+      marks,
+      id
+    ]);
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({
+        message: "Student record not found"
+      });
+    }
+
+    res.json({
+      message: "Student updated successfully",
+      student: result.rows[0]
+    });
+
+  } catch (error) {
+    res.status(500).json({
+      message: "Failed to update student",
       error: error.message
     });
   }
